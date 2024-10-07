@@ -3,6 +3,13 @@ import json
 import os
 import datetime
 
+# Streamlit page configuration (Move this to the top of the script)
+st.set_page_config(
+    page_title="LLAMA 3.1. Chat",
+    page_icon="🦙",
+    layout="centered"
+)
+
 # Initialize the chat history if not present already
 if "chat_sessions" not in st.session_state:
     if os.path.exists("chat_sessions.json"):
@@ -42,13 +49,6 @@ if st.session_state.current_session:
     current_chat = st.session_state.chat_sessions[st.session_state.current_session]
 else:
     current_chat = []
-
-# Streamlit page configuration
-st.set_page_config(
-    page_title="LLAMA 3.1. Chat",
-    page_icon="🦙",
-    layout="centered"
-)
 
 # Page title
 st.title("🦙 LLAMA 3.1. ChatBot")
