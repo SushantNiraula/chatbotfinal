@@ -3,7 +3,7 @@ import json
 import os
 import datetime
 
-# Streamlit page configuration (Move this to the top of the script)
+# Set page configuration at the top
 st.set_page_config(
     page_title="LLAMA 3.1. Chat",
     page_icon="🦙",
@@ -42,7 +42,8 @@ with st.sidebar:
         st.session_state.chat_sessions[new_session_name] = []
         st.session_state.current_session = new_session_name
         save_sessions_to_file()
-        st.experimental_rerun()
+        # Use experimental_set_query_params() to trigger a rerun
+        st.experimental_set_query_params(new_chat=new_session_name)
 
 # Check if there is a current session
 if st.session_state.current_session:
@@ -53,8 +54,12 @@ else:
 # Page title
 st.title("🦙 LLAMA 3.1. ChatBot")
 
+# Initialize user input in session state to clear after submit
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""
+
 # Input field for user's message
-user_prompt = st.text_input("Ask LLAMA...", value="", placeholder="Type your question or prompt...")
+user_prompt = st.text_input("Ask LLAMA...", value=st.session_state.user_input, placeholder="Type your question or prompt...")
 
 if user_prompt and st.session_state.current_session:
     try:
@@ -85,11 +90,14 @@ if user_prompt and st.session_state.current_session:
         })
         st.session_state.chat_sessions[st.session_state.current_session] = current_chat
 
+        # Clear the user input field after sending
+        st.session_state.user_input = ""
+
         # Save updated chat sessions
         save_sessions_to_file()
 
-        # Rerun the app to refresh the UI
-        st.experimental_rerun()
+        # Use experimental_set_query_params() to trigger a rerun
+        st.experimental_set_query_params(chat_updated=datetime.datetime.now().timestamp())
 
     except Exception as e:
         st.error(f"Error: {str(e)}")
