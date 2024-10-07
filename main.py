@@ -48,23 +48,35 @@ if user_prompt:
     try:
         # Display user message
         st.chat_message("user").markdown(user_prompt)
-        st.session_state.chat_history.append({"role": "user", "content": user_prompt, "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+        # Save the user's message with timestamp locally but do not send timestamp to the API
+        st.session_state.chat_history.append({
+            "role": "user", 
+            "content": user_prompt, 
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
 
-        # Send user's message to the LLM and get a response
-        messages = [
+        # Prepare messages to send to the API, excluding the timestamp
+        messages_for_api = [
             {"role": "system", "content": "You are a helpful assistant"},
-            *st.session_state.chat_history
+            *[
+                {"role": msg["role"], "content": msg["content"]}  # Exclude timestamp
+                for msg in st.session_state.chat_history
+            ]
         ]
 
         # Get the response from the model (Handle this correctly depending on API)
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=messages
+            messages=messages_for_api
         )
         assistant_response = response.choices[0].message.content
 
-        # Save the assistant's response
-        st.session_state.chat_history.append({"role": "assistant", "content": assistant_response, "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+        # Save the assistant's response with timestamp locally
+        st.session_state.chat_history.append({
+            "role": "assistant", 
+            "content": assistant_response, 
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
 
         # Display assistant response
         with st.chat_message("assistant"):
