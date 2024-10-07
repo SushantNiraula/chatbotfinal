@@ -1,35 +1,47 @@
 import streamlit as st
 import json
 import os
-import datetime  # Added datetime import
+import datetime
 
 # Initialize the chat history if not present already
-if "chat_history" not in st.session_state:
-    if os.path.exists("session_data.json"):
-        with open("session_data.json", "r") as file:
-            st.session_state.chat_history = json.load(file)
+if "chat_sessions" not in st.session_state:
+    if os.path.exists("chat_sessions.json"):
+        with open("chat_sessions.json", "r") as file:
+            st.session_state.chat_sessions = json.load(file)
     else:
-        st.session_state.chat_history = []
+        st.session_state.chat_sessions = {}
 
-# Initialize the current page if not present already
-if "current_page" not in st.session_state:
-    st.session_state.current_page = 0
+# Function to save chat sessions to file
+def save_sessions_to_file():
+    with open("chat_sessions.json", "w") as file:
+        json.dump(st.session_state.chat_sessions, file)
 
-# Save the API key to environment variable
-GROQ_API_KEY = st.secrets["API_KEY"]
-os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+# Initialize current chat session
+if "current_session" not in st.session_state:
+    st.session_state.current_session = None
 
-# Initialize Groq client (Check the package import)
-try:
-    from groq import Groq
-    client = Groq()
-except ImportError:
-    st.error("Groq package not found. Please install it.")
+# Sidebar: Show all past chat sessions
+with st.sidebar:
+    st.title("Past Chats")
+    selected_session = st.selectbox("Select a session", options=list(st.session_state.chat_sessions.keys()), index=0 if st.session_state.chat_sessions else -1)
+    
+    if selected_session:
+        st.session_state.current_session = selected_session
+        st.write("Selected Chat:", selected_session)
+    
+    # Button to start a new chat session
+    if st.button("Start New Chat"):
+        new_session_name = f"Chat_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        st.session_state.chat_sessions[new_session_name] = []
+        st.session_state.current_session = new_session_name
+        save_sessions_to_file()
+        st.experimental_rerun()
 
-# Save chat history to session_data.json after every interaction
-def save_to_file():
-    with open("session_data.json", "w") as file:
-        json.dump(st.session_state.chat_history, file)
+# Check if there is a current session
+if st.session_state.current_session:
+    current_chat = st.session_state.chat_sessions[st.session_state.current_session]
+else:
+    current_chat = []
 
 # Streamlit page configuration
 st.set_page_config(
@@ -38,70 +50,56 @@ st.set_page_config(
     layout="centered"
 )
 
-# Streamlit page title
+# Page title
 st.title("🦙 LLAMA 3.1. ChatBot")
 
-# Input field for user's message:
+# Input field for user's message
 user_prompt = st.text_input("Ask LLAMA...", value="", placeholder="Type your question or prompt...")
 
-if user_prompt:
+if user_prompt and st.session_state.current_session:
     try:
-        # Display user message
-        st.chat_message("user").markdown(user_prompt)
-        # Save the user's message with timestamp locally but do not send timestamp to the API
-        st.session_state.chat_history.append({
-            "role": "user", 
-            "content": user_prompt, 
+        # Append user's message to the chat session
+        current_chat.append({
+            "role": "user",
+            "content": user_prompt,
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
+        st.session_state.chat_sessions[st.session_state.current_session] = current_chat
 
-        # Prepare messages to send to the API, excluding the timestamp
+        # Prepare messages for API (without the timestamp)
         messages_for_api = [
             {"role": "system", "content": "You are a helpful assistant"},
             *[
-                {"role": msg["role"], "content": msg["content"]}  # Exclude timestamp
-                for msg in st.session_state.chat_history
+                {"role": msg["role"], "content": msg["content"]} for msg in current_chat
             ]
         ]
 
-        # Get the response from the model (Handle this correctly depending on API)
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages_for_api
-        )
-        assistant_response = response.choices[0].message.content
+        # Simulated API response
+        assistant_response = "Simulated response from LLM based on: " + user_prompt
 
-        # Save the assistant's response with timestamp locally
-        st.session_state.chat_history.append({
-            "role": "assistant", 
-            "content": assistant_response, 
+        # Append assistant's response to the chat session
+        current_chat.append({
+            "role": "assistant",
+            "content": assistant_response,
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
+        st.session_state.chat_sessions[st.session_state.current_session] = current_chat
 
-        # Display assistant response
-        with st.chat_message("assistant"):
-            st.markdown(assistant_response)
+        # Save updated chat sessions
+        save_sessions_to_file()
 
-        # Save to file
-        save_to_file()
+        # Rerun the app to refresh the UI
+        st.experimental_rerun()
+
     except Exception as e:
-        st.error("Error: " + str(e))
+        st.error(f"Error: {str(e)}")
 
-# Display chat history (pagination logic)
-start = st.session_state.current_page * 5
-end = start + 5
-for i, message in enumerate(st.session_state.chat_history[start:end]):
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Display the chat history of the current session
+if st.session_state.current_session:
+    st.write(f"Chat: {st.session_state.current_session}")
+    for message in current_chat:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-# Buttons to navigate through pages
-col1, col2 = st.columns(2)
-with col1:
-    if st.session_state.current_page > 0:
-        if st.button("Previous Page"):
-            st.session_state.current_page -= 1
-
-with col2:
-    if st.session_state.current_page < (len(st.session_state.chat_history) - 1) // 5:
-        if st.button("Next Page"):
-            st.session_state.current_page += 1
+# Save updated sessions to file periodically
+save_sessions_to_file()
